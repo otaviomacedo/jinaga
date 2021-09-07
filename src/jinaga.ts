@@ -12,6 +12,8 @@ import { Trace, Tracer } from './util/trace';
 import { Watch } from './watch/watch';
 import { WatchImpl } from './watch/watch-impl';
 import { WatchNoOp } from './watch/watch-noop';
+import {QueryMessage} from "./http";
+import {fromDescriptiveString} from "./query/descriptive-string";
     
 export interface Profile {
     displayName: string;
@@ -136,6 +138,25 @@ export class Jinaga {
         this.validateFact(fact);
         const reference = dehydrateReference(fact);
         const query = new Query(preposition.steps);
+        const results = await this.authentication.query(reference, query);
+        if (results.length === 0) {
+            return [];
+        }
+        const references = results.map(r => r[r.length - 1]);
+        const uniqueReferences = uniqueFactReferences(references);
+
+        const facts = await this.authentication.load(uniqueReferences);
+        return hydrateFromTree(uniqueReferences, facts);
+    }
+
+    async queryWithMessage<T, U>(start: T, queryMessage: QueryMessage) : Promise<U[]> {
+        if (!start) {
+            return [];
+        }
+        const fact = JSON.parse(JSON.stringify(start));
+        this.validateFact(fact);
+        const reference = dehydrateReference(fact);
+        const query = fromDescriptiveString(queryMessage.query);
         const results = await this.authentication.query(reference, query);
         if (results.length === 0) {
             return [];

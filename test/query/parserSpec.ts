@@ -6,6 +6,7 @@ import { describe, it } from 'mocha';
 import { Jinaga } from '../../src/jinaga';
 import { Query } from '../../src/query/query';
 import { Condition, Preposition, Specification, ensure } from '../../src/query/query-parser';
+import {JinagaServer} from "../../src";
 
 describe('Query parser', () => {
 
@@ -303,4 +304,54 @@ describe('Query parser', () => {
             'N(S.oldAbstract F.type="ImprovingU.Abstract.Migration")'
         );
     });
+});
+
+it("Can query for posts by author", async () => {
+    function postsByAuthor(author: any) {
+        return j.match({
+            type: "Blog.Post",
+            author
+        });
+    }
+
+    const pgConnection = process.env.JINAGA_POSTGRESQL ??
+        'postgresql://postgres:postgres@localhost:5432/myapplication';
+    const server = JinagaServer.create({
+        pgKeystore: pgConnection,
+        pgStore: pgConnection
+    });
+
+    const j = server.j;
+
+    const person = await j.fact({
+        type: "Jinaga.User",
+        publicKey: "---Blog Creator---"
+    });
+
+    await j.fact({
+        type: "Blog.Post",
+        created: new Date('December 17, 1995 03:24:00'),
+        author: person
+    });
+
+
+    const start = `{
+        "type": "Jinaga.User",
+        "publicKey": "---Blog Creator---"
+    }`;
+
+    const prep = `{
+        "type": "Blog.Post",
+        "author": "\${StartingPoint}"
+    }`;
+
+
+
+
+    let preposition = j.for(postsByAuthor);
+    const posts = await j.query(person, preposition);
+
+    console.log(posts);
+
+    expect(posts.length).to.equal(1);
 });
